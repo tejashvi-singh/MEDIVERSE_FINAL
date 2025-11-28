@@ -1,274 +1,468 @@
-import React from 'react';
-import { X, FileText, Calendar, User, Activity } from 'lucide-react';
+// frontend/src/components/PatientDashboard.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import './PatientDashboard.css';
 
-function MedicalRecordViewer({ record, onClose }) {
-  if (!record) return null;
+const PatientDashboard = () => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [appointments, setAppointments] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [medicalRecords, setMedicalRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showRecordModal, setShowRecordModal] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  
+  const [bookingForm, setBookingForm] = useState({
+    doctorId: '',
+    date: '',
+    time: '',
+    reason: '',
+    symptoms: ''
+  });
+
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+  useEffect(() => {
+    checkAuth();
+    fetchData();
+  }, []);
+
+  const checkAuth = () => {
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    
+    if (!token || !userData) {
+      navigate('/login');
+      return;
+    }
+    
+    setUser(JSON.parse(userData));
+  };
+
+  const fetchData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: { Authorization: `Bearer ${token}` }
+      };
+
+      const [appointmentsRes, doctorsRes, recordsRes] = await Promise.all([
+        axios.get(`${API_URL}/api/appointments/my-appointments`, config),
+        axios.get(`${API_URL}/api/users/doctors`, config),
+        axios.get(`${API_URL}/api/medical-records/my-records`, config)
+      ]);
+
+      setAppointments(appointmentsRes.data.appointments || []);
+      setDoctors(doctorsRes.data.doctors || []);
+      setMedicalRecords(recordsRes.data.records || []);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBookingChange = (e) => {
+    setBookingForm({
+      ...bookingForm,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleBookAppointment = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${API_URL}/api/appointments/book`,
+        bookingForm,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.data.success) {
+        alert('Appointment booked successfully!');
+        setShowBookingModal(false);
+        setBookingForm({
+          doctorId: '',
+          date: '',
+          time: '',
+          reason: '',
+          symptoms: ''
+        });
+        fetchData();
+      }
+    } catch (error) {
+      console.error('Booking error:', error);
+      alert(error.response?.data?.message || 'Failed to book appointment');
+    }
+  };
+
+  const handleCancelAppointment = async (appointmentId) => {
+    if (!window.confirm('Are you sure you want to cancel this appointment?')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.patch(
+        `${API_URL}/api/appointments/${appointmentId}/cancel`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      alert('Appointment cancelled successfully');
+      fetchData();
+    } catch (error) {
+      console.error('Cancel error:', error);
+      alert('Failed to cancel appointment');
+    }
+  };
+
+  const viewMedicalRecord = (record) => {
+    setSelectedRecord(record);
+    setShowRecordModal(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      pending: '#FFA500',
+      confirmed: '#4CAF50',
+      cancelled: '#f44336',
+      completed: '#2196F3'
+    };
+    return colors[status] || '#666';
+  };
+
+  const getMinDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="spinner"></div>
+        <p>Loading your dashboard...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 rounded-t-xl">
-          <div className="flex justify-between items-start">
-            <div>
-              <h2 className="text-2xl font-bold mb-2">{record.title}</h2>
-              <div className="flex items-center gap-4 text-sm opacity-90">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  {new Date(record.recordDate || record.createdAt).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </span>
-                <span className="flex items-center gap-1">
-                  <FileText className="w-4 h-4" />
-                  {record.recordType?.toUpperCase().replace('-', ' ')}
-                </span>
-              </div>
+    <div className="patient-dashboard">
+      {/* Header */}
+      <header className="dashboard-header">
+        <div className="header-content">
+          <div className="logo">
+            <h1>🏥 MEDIVERSE</h1>
+          </div>
+          <div className="user-info">
+            <span className="welcome-text">Welcome, {user?.name}</span>
+            <button onClick={handleLogout} className="logout-btn">
+              Logout
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="dashboard-content">
+        {/* Quick Stats */}
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-icon">📅</div>
+            <div className="stat-info">
+              <h3>{appointments.filter(a => a.status === 'pending').length}</h3>
+              <p>Pending Appointments</p>
             </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">✅</div>
+            <div className="stat-info">
+              <h3>{appointments.filter(a => a.status === 'confirmed').length}</h3>
+              <p>Confirmed Appointments</p>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">📋</div>
+            <div className="stat-info">
+              <h3>{medicalRecords.length}</h3>
+              <p>Medical Records</p>
+            </div>
+          </div>
+          <div className="stat-card action-card">
             <button 
-              onClick={onClose}
-              className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-colors"
+              className="book-appointment-btn"
+              onClick={() => setShowBookingModal(true)}
             >
-              <X className="w-6 h-6" />
+              <span>➕</span>
+              Book New Appointment
             </button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Doctor & Patient Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <div className="flex items-center gap-2 mb-2">
-                <User className="w-5 h-5 text-blue-600" />
-                <h3 className="font-semibold text-blue-900">Doctor Information</h3>
-              </div>
-              <p className="text-gray-800">
-                {record.doctorId?.userId?.name || 'Dr. Unknown'}
-              </p>
-              <p className="text-sm text-gray-600">
-                {record.doctorId?.specialty || 'Specialist'}
-              </p>
+        {/* Appointments Section */}
+        <section className="dashboard-section">
+          <h2>My Appointments</h2>
+          {appointments.length === 0 ? (
+            <div className="empty-state">
+              <p>📅 No appointments yet</p>
+              <button onClick={() => setShowBookingModal(true)}>
+                Book Your First Appointment
+              </button>
             </div>
+          ) : (
+            <div className="appointments-list">
+              {appointments.map((appointment) => (
+                <div key={appointment._id} className="appointment-card">
+                  <div className="appointment-header">
+                    <div className="doctor-info">
+                      <div className="doctor-avatar">
+                        {appointment.doctor?.name?.charAt(0) || 'D'}
+                      </div>
+                      <div>
+                        <h3>Dr. {appointment.doctor?.name || 'Unknown'}</h3>
+                        <p className="specialization">
+                          {appointment.doctor?.specialization || 'General Physician'}
+                        </p>
+                      </div>
+                    </div>
+                    <span 
+                      className="status-badge"
+                      style={{ backgroundColor: getStatusColor(appointment.status) }}
+                    >
+                      {appointment.status}
+                    </span>
+                  </div>
+                  <div className="appointment-details">
+                    <div className="detail-item">
+                      <span className="icon">📅</span>
+                      <span>{new Date(appointment.date).toLocaleDateString()}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="icon">⏰</span>
+                      <span>{appointment.time}</span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="icon">📝</span>
+                      <span>{appointment.reason}</span>
+                    </div>
+                  </div>
+                  {appointment.symptoms && (
+                    <div className="symptoms-section">
+                      <strong>Symptoms:</strong> {appointment.symptoms}
+                    </div>
+                  )}
+                  {appointment.status === 'pending' && (
+                    <div className="appointment-actions">
+                      <button 
+                        className="cancel-btn"
+                        onClick={() => handleCancelAppointment(appointment._id)}
+                      >
+                        Cancel Appointment
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
-            <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-              <div className="flex items-center gap-2 mb-2">
-                <User className="w-5 h-5 text-green-600" />
-                <h3 className="font-semibold text-green-900">Patient Information</h3>
-              </div>
-              <p className="text-gray-800">
-                {record.patientId?.userId?.name || 'Patient'}
-              </p>
-              <p className="text-sm text-gray-600">
-                Age: {record.patientId?.age || 'N/A'}
-              </p>
+        {/* Medical Records Section */}
+        <section className="dashboard-section">
+          <h2>Medical Records</h2>
+          {medicalRecords.length === 0 ? (
+            <div className="empty-state">
+              <p>📋 No medical records available</p>
             </div>
+          ) : (
+            <div className="records-grid">
+              {medicalRecords.map((record) => (
+                <div key={record._id} className="record-card">
+                  <div className="record-header">
+                    <h4>{record.title || 'Medical Record'}</h4>
+                    <span className="record-date">
+                      {new Date(record.date).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="record-info">
+                    <p><strong>Doctor:</strong> Dr. {record.doctor?.name}</p>
+                    <p><strong>Type:</strong> {record.type || 'General'}</p>
+                  </div>
+                  <button 
+                    className="view-record-btn"
+                    onClick={() => viewMedicalRecord(record)}
+                  >
+                    View Details
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Booking Modal */}
+      {showBookingModal && (
+        <div className="modal-overlay" onClick={() => setShowBookingModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Book Appointment</h2>
+              <button 
+                className="close-btn"
+                onClick={() => setShowBookingModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleBookAppointment} className="booking-form">
+              <div className="form-group">
+                <label>Select Doctor</label>
+                <select
+                  name="doctorId"
+                  value={bookingForm.doctorId}
+                  onChange={handleBookingChange}
+                  required
+                >
+                  <option value="">Choose a doctor</option>
+                  {doctors.map((doctor) => (
+                    <option key={doctor._id} value={doctor._id}>
+                      Dr. {doctor.name} - {doctor.specialization || 'General Physician'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Date</label>
+                  <input
+                    type="date"
+                    name="date"
+                    value={bookingForm.date}
+                    onChange={handleBookingChange}
+                    min={getMinDate()}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Time</label>
+                  <select
+                    name="time"
+                    value={bookingForm.time}
+                    onChange={handleBookingChange}
+                    required
+                  >
+                    <option value="">Select time</option>
+                    <option value="09:00 AM">09:00 AM</option>
+                    <option value="10:00 AM">10:00 AM</option>
+                    <option value="11:00 AM">11:00 AM</option>
+                    <option value="12:00 PM">12:00 PM</option>
+                    <option value="02:00 PM">02:00 PM</option>
+                    <option value="03:00 PM">03:00 PM</option>
+                    <option value="04:00 PM">04:00 PM</option>
+                    <option value="05:00 PM">05:00 PM</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Reason for Visit</label>
+                <input
+                  type="text"
+                  name="reason"
+                  value={bookingForm.reason}
+                  onChange={handleBookingChange}
+                  placeholder="e.g., Regular checkup, Consultation"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Symptoms (Optional)</label>
+                <textarea
+                  name="symptoms"
+                  value={bookingForm.symptoms}
+                  onChange={handleBookingChange}
+                  placeholder="Describe your symptoms..."
+                  rows="3"
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" onClick={() => setShowBookingModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="primary-btn">
+                  Book Appointment
+                </button>
+              </div>
+            </form>
           </div>
+        </div>
+      )}
 
-          {/* Description */}
-          {record.description && (
-            <div className="bg-gray-50 rounded-lg p-4 border">
-              <h3 className="font-semibold text-gray-900 mb-2">Description</h3>
-              <p className="text-gray-700 whitespace-pre-wrap">{record.description}</p>
+      {/* Medical Record Modal */}
+      {showRecordModal && selectedRecord && (
+        <div className="modal-overlay" onClick={() => setShowRecordModal(false)}>
+          <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Medical Record Details</h2>
+              <button 
+                className="close-btn"
+                onClick={() => setShowRecordModal(false)}
+              >
+                ✕
+              </button>
             </div>
-          )}
-
-          {/* Diagnosis */}
-          {record.diagnosis && (
-            <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
-              <h3 className="font-semibold text-yellow-900 mb-2">Diagnosis</h3>
-              <p className="text-gray-700 whitespace-pre-wrap">{record.diagnosis}</p>
-            </div>
-          )}
-
-          {/* Treatment */}
-          {record.treatment && (
-            <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-              <h3 className="font-semibold text-green-900 mb-2">Treatment Plan</h3>
-              <p className="text-gray-700 whitespace-pre-wrap">{record.treatment}</p>
-            </div>
-          )}
-
-          {/* Medications */}
-          {record.medications && record.medications.length > 0 && (
-            <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-              <h3 className="font-semibold text-purple-900 mb-3">Prescribed Medications</h3>
-              <div className="space-y-3">
-                {record.medications.map((med, index) => (
-                  <div key={index} className="bg-white rounded-lg p-3 border">
-                    <div className="flex justify-between items-start mb-1">
-                      <p className="font-semibold text-gray-900">{med.name || med.medicine}</p>
-                      <span className="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                        {med.dosage}
-                      </span>
-                    </div>
-                    {med.frequency && (
-                      <p className="text-sm text-gray-600">
-                        <span className="font-medium">Frequency:</span> {med.frequency}
-                      </p>
-                    )}
-                    {med.duration && (
-                      <p className="text-sm text-gray-600">
-                        <span className="font-medium">Duration:</span> {med.duration}
-                      </p>
-                    )}
-                    {med.instructions && (
-                      <p className="text-sm text-gray-600 mt-1">
-                        <span className="font-medium">Instructions:</span> {med.instructions}
-                      </p>
-                    )}
-                  </div>
-                ))}
+            <div className="record-details">
+              <div className="detail-row">
+                <strong>Date:</strong>
+                <span>{new Date(selectedRecord.date).toLocaleDateString()}</span>
               </div>
-            </div>
-          )}
-
-          {/* Vital Signs */}
-          {record.vitals && Object.keys(record.vitals).some(key => record.vitals[key]) && (
-            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-              <div className="flex items-center gap-2 mb-3">
-                <Activity className="w-5 h-5 text-blue-600" />
-                <h3 className="font-semibold text-blue-900">Vital Signs</h3>
+              <div className="detail-row">
+                <strong>Doctor:</strong>
+                <span>Dr. {selectedRecord.doctor?.name}</span>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {record.vitals.bloodPressure && (
-                  <div className="bg-white rounded-lg p-3 border">
-                    <p className="text-xs text-gray-600 mb-1">Blood Pressure</p>
-                    <p className="text-lg font-semibold text-gray-900">{record.vitals.bloodPressure}</p>
-                    <p className="text-xs text-gray-500">mmHg</p>
-                  </div>
-                )}
-                {record.vitals.heartRate && (
-                  <div className="bg-white rounded-lg p-3 border">
-                    <p className="text-xs text-gray-600 mb-1">Heart Rate</p>
-                    <p className="text-lg font-semibold text-gray-900">{record.vitals.heartRate}</p>
-                    <p className="text-xs text-gray-500">bpm</p>
-                  </div>
-                )}
-                {record.vitals.temperature && (
-                  <div className="bg-white rounded-lg p-3 border">
-                    <p className="text-xs text-gray-600 mb-1">Temperature</p>
-                    <p className="text-lg font-semibold text-gray-900">{record.vitals.temperature}</p>
-                    <p className="text-xs text-gray-500">°F</p>
-                  </div>
-                )}
-                {record.vitals.weight && (
-                  <div className="bg-white rounded-lg p-3 border">
-                    <p className="text-xs text-gray-600 mb-1">Weight</p>
-                    <p className="text-lg font-semibold text-gray-900">{record.vitals.weight}</p>
-                    <p className="text-xs text-gray-500">kg</p>
-                  </div>
-                )}
-                {record.vitals.height && (
-                  <div className="bg-white rounded-lg p-3 border">
-                    <p className="text-xs text-gray-600 mb-1">Height</p>
-                    <p className="text-lg font-semibold text-gray-900">{record.vitals.height}</p>
-                    <p className="text-xs text-gray-500">cm</p>
-                  </div>
-                )}
-                {record.vitals.bmi && (
-                  <div className="bg-white rounded-lg p-3 border">
-                    <p className="text-xs text-gray-600 mb-1">BMI</p>
-                    <p className="text-lg font-semibold text-gray-900">{record.vitals.bmi}</p>
-                    <p className="text-xs text-gray-500">kg/m²</p>
-                  </div>
-                )}
-                {record.vitals.oxygenLevel && (
-                  <div className="bg-white rounded-lg p-3 border">
-                    <p className="text-xs text-gray-600 mb-1">Oxygen Level</p>
-                    <p className="text-lg font-semibold text-gray-900">{record.vitals.oxygenLevel}</p>
-                    <p className="text-xs text-gray-500">%</p>
-                  </div>
-                )}
+              <div className="detail-row">
+                <strong>Type:</strong>
+                <span>{selectedRecord.type || 'General'}</span>
               </div>
-            </div>
-          )}
-
-          {/* Lab Results */}
-          {record.labResults && record.labResults.length > 0 && (
-            <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-200">
-              <h3 className="font-semibold text-indigo-900 mb-3">Lab Results</h3>
-              <div className="space-y-2">
-                {record.labResults.map((lab, index) => (
-                  <div key={index} className="bg-white rounded-lg p-3 border flex justify-between items-center">
-                    <div>
-                      <p className="font-medium text-gray-900">{lab.testName}</p>
-                      <p className="text-sm text-gray-600">
-                        Normal Range: {lab.normalRange} {lab.unit}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-lg font-bold ${
-                        lab.status === 'normal' ? 'text-green-600' :
-                        lab.status === 'abnormal' ? 'text-orange-600' :
-                        lab.status === 'critical' ? 'text-red-600' :
-                        'text-gray-900'
-                      }`}>
-                        {lab.result} {lab.unit}
-                      </p>
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        lab.status === 'normal' ? 'bg-green-100 text-green-800' :
-                        lab.status === 'abnormal' ? 'bg-orange-100 text-orange-800' :
-                        lab.status === 'critical' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {lab.status?.toUpperCase()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Follow-up */}
-          {record.followUpDate && (
-            <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-              <h3 className="font-semibold text-orange-900 mb-2">Follow-up Required</h3>
-              <div className="flex items-center gap-2 text-gray-700">
-                <Calendar className="w-5 h-5 text-orange-600" />
-                <span>
-                  {new Date(record.followUpDate).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </span>
-              </div>
-              {record.followUpInstructions && (
-                <p className="text-sm text-gray-600 mt-2">{record.followUpInstructions}</p>
+              {selectedRecord.diagnosis && (
+                <div className="detail-section">
+                  <strong>Diagnosis:</strong>
+                  <p>{selectedRecord.diagnosis}</p>
+                </div>
+              )}
+              {selectedRecord.prescription && (
+                <div className="detail-section">
+                  <strong>Prescription:</strong>
+                  <p>{selectedRecord.prescription}</p>
+                </div>
+              )}
+              {selectedRecord.notes && (
+                <div className="detail-section">
+                  <strong>Notes:</strong>
+                  <p>{selectedRecord.notes}</p>
+                </div>
               )}
             </div>
-          )}
-
-          {/* Findings */}
-          {record.findings && (
-            <div className="bg-gray-50 rounded-lg p-4 border">
-              <h3 className="font-semibold text-gray-900 mb-2">Clinical Findings</h3>
-              <p className="text-gray-700 whitespace-pre-wrap">{record.findings}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="sticky bottom-0 bg-gray-50 border-t p-4 rounded-b-xl">
-          <div className="flex justify-between items-center">
-            <p className="text-sm text-gray-500">
-              Created on {new Date(record.createdAt).toLocaleDateString()}
-            </p>
-            <button
-              onClick={onClose}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-            >
-              Close
-            </button>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
-}
+};
 
-export default MedicalRecordViewer;
+export default PatientDashboard;

@@ -1,137 +1,174 @@
-import User from '../models/User.js';
-import Doctor from '../models/Doctor.js';
-import Patient from '../models/Patient.js';
-import jwt from 'jsonwebtoken';
+// backend/controllers/authController.js
+const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE
-  });
-};
-
-export const signup = async (req, res) => {
+// Register User
+exports.registerUser = async (req, res) => {
   try {
-    const { name, email, password, role, specialty, age, gender, phoneNumber } = req.body;
+    const { name, email, password, role } = req.body;
 
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ message: 'User already exists' });
+    // Validation
+    if (!name || !email || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please provide all required fields' 
+      });
     }
 
-    user = new User({ name, email, password, role, phoneNumber });
-    await user.save();
-
-    if (role === 'doctor') {
-      const doctor = new Doctor({
-        userId: user._id,
-        specialty: specialty || 'General Medicine',
-        workingHours: {
-          monday: { start: '09:00', end: '17:00', available: true },
-          tuesday: { start: '09:00', end: '17:00', available: true },
-          wednesday: { start: '09:00', end: '17:00', available: true },
-          thursday: { start: '09:00', end: '17:00', available: true },
-          friday: { start: '09:00', end: '17:00', available: true }
-        }
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User already exists with this email' 
       });
-      await doctor.save();
-    } else if (role === 'patient') {
-      const patient = new Patient({
-        userId: user._id,
-        age: age || null,
-        gender: gender || null
-      });
-      await patient.save();
     }
 
-    const token = generateToken(user._id);
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create new user
+    const user = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      role: role || 'patient'
+    });
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, email: user.email, role: user.role },
+      process.env.JWT_SECRET || 'your-secret-key-here',
+      { expiresIn: '7d' }
+    );
 
     res.status(201).json({
       success: true,
+      message: 'User registered successfully',
       token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role,
-        phoneNumber: user.phoneNumber
+        role: user.role
       }
     });
   } catch (error) {
-    console.error('Signup error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Registration error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error during registration',
+      error: error.message 
+    });
   }
 };
 
-export const login = async (req, res) => {
+// Login User
+exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Please provide email and password' 
+      });
+    }
+
+    // Find user by email
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid email or password' 
+      });
     }
 
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    // Check password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Invalid email or password' 
+      });
     }
 
-    let additionalData = {};
-    if (user.role === 'doctor') {
-      const doctor = await Doctor.findOne({ userId: user._id });
-      if (doctor) {
-        additionalData.specialty = doctor.specialty;
-        additionalData.doctorId = doctor._id;
-      }
-    } else if (user.role === 'patient') {
-      const patient = await Patient.findOne({ userId: user._id });
-      if (patient) {
-        additionalData.age = patient.age;
-        additionalData.patientId = patient._id;
-      }
-    }
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, email: user.email, role: user.role },
+      process.env.JWT_SECRET || 'your-secret-key-here',
+      { expiresIn: '7d' }
+    );
 
-    const token = generateToken(user._id);
-
-    res.json({
+    res.status(200).json({
       success: true,
+      message: 'Login successful',
       token,
       user: {
         id: user._id,
         name: user.name,
         email: user.email,
-        role: user.role,
-        phoneNumber: user.phoneNumber,
-        ...additionalData
+        role: user.role
       }
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error during login',
+      error: error.message 
+    });
   }
 };
 
-export const getMe = async (req, res) => {
+// Get Current User
+exports.getCurrentUser = async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('-password');
+    const user = await User.findById(req.user.id).select('-password');
     
-    let additionalData = {};
-    if (user.role === 'doctor') {
-      const doctor = await Doctor.findOne({ userId: user._id });
-      if (doctor) additionalData = { ...doctor.toObject() };
-    } else if (user.role === 'patient') {
-      const patient = await Patient.findOne({ userId: user._id });
-      if (patient) additionalData = { ...patient.toObject() };
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'User not found' 
+      });
     }
 
-    res.json({
+    res.status(200).json({
       success: true,
       user: {
-        ...user.toObject(),
-        ...additionalData
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
       }
     });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    console.error('Get user error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error',
+      error: error.message 
+    });
+  }
+};
+
+// Logout User (optional - for token blacklisting)
+exports.logoutUser = async (req, res) => {
+  try {
+    // If you implement token blacklisting, add logic here
+    res.status(200).json({
+      success: true,
+      message: 'Logout successful'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error during logout',
+      error: error.message 
+    });
   }
 };

@@ -1,59 +1,103 @@
-import React, { useState, useEffect } from 'react';
-import Dashboard from './components/Dashboard';
-import AuthPage from './components/AuthPage';
-import { authAPI } from './services/api';
+// frontend/src/App.js
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Login from './components/Login';
+import Register from './components/Register';
+import PatientDashboard from './components/PatientDashboard';
+import DoctorDashboard from './components/DoctorDashboard';
+import AIChatbot from './components/AIChatbot';
+import './App.css';
+
+// Protected Route Component
+const ProtectedRoute = ({ children, requiredRole }) => {
+  const token = localStorage.getItem('token');
+  const user = localStorage.getItem('user');
+
+  if (!token || !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (requiredRole) {
+    const userData = JSON.parse(user);
+    if (userData.role !== requiredRole) {
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
+
+  return children;
+};
+
+// Public Route (redirect if already logged in)
+const PublicRoute = ({ children }) => {
+  const token = localStorage.getItem('token');
+  const user = localStorage.getItem('user');
+
+  if (token && user) {
+    const userData = JSON.parse(user);
+    if (userData.role === 'doctor') {
+      return <Navigate to="/doctor/dashboard" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
 
 function App() {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  return (
+    <Router>
+      <div className="App">
+        <Routes>
+          {/* Public Routes */}
+          <Route 
+            path="/login" 
+            element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            } 
+          />
+          <Route 
+            path="/register" 
+            element={
+              <PublicRoute>
+                <Register />
+              </PublicRoute>
+            } 
+          />
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
+          {/* Protected Patient Routes */}
+          <Route 
+            path="/dashboard" 
+            element={
+              <ProtectedRoute>
+                <PatientDashboard />
+              </ProtectedRoute>
+            } 
+          />
 
-  const checkAuth = async () => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const response = await authAPI.getMe();
-        setCurrentUser(response.data.user);
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
-    }
-    setLoading(false);
-  };
+          {/* Protected Doctor Routes */}
+          <Route 
+            path="/doctor/dashboard" 
+            element={
+              <ProtectedRoute requiredRole="doctor">
+                <DoctorDashboard />
+              </ProtectedRoute>
+            } 
+          />
 
-  const handleLogin = (user, token) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
-    setCurrentUser(user);
-  };
+          {/* Default Route */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          
+          {/* Catch all - redirect to login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setCurrentUser(null);
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
+        {/* Global AI Chatbot - Available on all authenticated pages */}
+        <AIChatbot />
       </div>
-    );
-  }
-
-  if (!currentUser) {
-    return <AuthPage onLogin={handleLogin} />;
-  }
-
-  return <Dashboard user={currentUser} onLogout={handleLogout} />;
+    </Router>
+  );
 }
 
 export default App;

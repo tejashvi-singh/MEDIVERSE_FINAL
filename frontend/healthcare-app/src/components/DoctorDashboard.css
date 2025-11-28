@@ -1,0 +1,170 @@
+/* frontend/src/components/DoctorDashboard.css */
+.doctor-dashboard {
+    min-height: 100vh;
+    background: #f5f7fa;
+  }
+  
+  .doctor-dashboard .dashboard-header {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  }
+  
+  .doctor-dashboard .stat-card.pending {
+    border-left: 4px solid #FFA500;
+  }
+  
+  .doctor-dashboard .stat-card.confirmed {
+    border-left: 4px solid #4CAF50;
+  }
+  
+  .doctor-dashboard .stat-card.completed {
+    border-left: 4px solid #2196F3;
+  }
+  
+  .doctor-dashboard .stat-card.total {
+    border-left: 4px solid #9C27B0;
+  }
+  
+  .patient-info {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  
+  .patient-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+  
+  .patient-email {
+    color: #666;
+    font-size: 0.9rem;
+    margin: 0;
+  }
+  
+  .pending-card {
+    border-left: 4px solid #FFA500;
+  }
+  
+  .confirmed-card {
+    border-left: 4px solid #4CAF50;
+  }
+  
+  .completed-card {
+    border-left: 4px solid #2196F3;
+    opacity: 0.8;
+  }
+  
+  .accept-btn {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    flex: 1;
+  }
+  
+  .accept-btn:hover {
+    background: #45a049;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+  }
+  
+  .reject-btn {
+    background: #f44336;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    flex: 1;
+  }
+  
+  .reject-btn:hover {
+    background: #d32f2f;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(244, 67, 54, 0.3);
+  }
+  
+  .complete-btn {
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    width: 100%;
+  }
+  
+  .complete-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(17, 153, 142, 0.3);
+  }
+  
+  .patient-summary {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin: 1rem 1.5rem;
+  }
+  
+  .patient-summary h3 {
+    margin: 0 0 0.5rem 0;
+    color: #333;
+    font-size: 1.2rem;
+  }
+  
+  .patient-summary p {
+    margin: 0.25rem 0;
+    color: #555;
+    font-size: 0.95rem;
+  }
+  
+  /* Reuse common styles from PatientDashboard */
+  .doctor-dashboard .dashboard-content,
+  .doctor-dashboard .stats-grid,
+  .doctor-dashboard .stat-card,
+  .doctor-dashboard .dashboard-section,
+  .doctor-dashboard .appointments-list,
+  .doctor-dashboard .appointment-card,
+  .doctor-dashboard .appointment-header,
+  .doctor-dashboard .appointment-details,
+  .doctor-dashboard .detail-item,
+  .doctor-dashboard .symptoms-section,
+  .doctor-dashboard .appointment-actions,
+  .doctor-dashboard .status-badge,
+  .doctor-dashboard .empty-state,
+  .doctor-dashboard .modal-overlay,
+  .doctor-dashboard .modal-content,
+  .doctor-dashboard .modal-header,
+  .doctor-dashboard .close-btn,
+  .doctor-dashboard .modal-actions,
+  .doctor-dashboard .loading-container,
+  .doctor-dashboard .spinner {
+    /* Inherit from PatientDashboard.css */
+  }
+  
+  @media (max-width: 768px) {
+    .appointment-actions {
+      flex-direction: column;
+    }
+  
+    .accept-btn,
+    .reject-btn {
+      width: 100%;
+    }
+  }

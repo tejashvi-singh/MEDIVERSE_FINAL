@@ -1,143 +1,171 @@
-import ChatMessage from '../models/ChatMessage.js';
-import OpenAI from 'openai';
+// backend/controllers/chatbotController.js
+const OpenAI = require('openai');
 
+// Initialize OpenAI with API key
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-export const sendChatMessage = async (req, res) => {
+// System prompt for medical context
+const SYSTEM_PROMPT = `You are a helpful and empathetic AI health assistant for MEDIVERSE, a healthcare platform. 
+
+Your role is to:
+- Provide general health information and wellness advice
+- Help users understand common symptoms
+- Offer guidance on when to seek professional medical care
+- Answer questions about healthy lifestyle choices
+- Provide emotional support and reassurance
+
+Important guidelines:
+- Always be empathetic and supportive
+- Never provide specific medical diagnoses
+- Always recommend consulting healthcare professionals for serious concerns
+- Provide evidence-based information when possible
+- Be clear about the limitations of AI medical advice
+- If unsure, acknowledge it and suggest professional consultation
+
+Remember: You are an assistant, not a replacement for professional medical care.`;
+
+exports.chat = async (req, res) => {
   try {
-    const { content, sessionId } = req.body;
+    const { message, conversationHistory } = req.body;
 
-    // Save user message
-    const userMessage = new ChatMessage({
-      userId: req.userId,
-      role: 'user',
-      content,
-      sessionId: sessionId || `session_${Date.now()}`,
-      type: 'text'
-    });
-    await userMessage.save();
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid message'
+      });
+    }
 
-    // Get conversation history
-    const history = await ChatMessage.find({
-      userId: req.userId,
-      sessionId: userMessage.sessionId
-    })
-      .sort({ createdAt: 1 })
-      .limit(10);
+    // Check if OpenAI API key is configured
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        message: 'AI service is not configured. Please contact support.',
+        response: 'I apologize, but the AI service is currently unavailable. Please try again later or contact support.'
+      });
+    }
 
-    // Prepare messages for OpenAI
+    // Prepare conversation messages
     const messages = [
       {
         role: 'system',
-        content: `You are a helpful medical AI assistant. Provide accurate health information, but always remind users to consult healthcare professionals for serious concerns. Be empathetic, clear, and concise.
-        Guidelines:
-- For symptoms, provide general advice and when to seek medical help
-- Never diagnose conditions definitively
-- Recommend seeing a doctor for persistent or severe symptoms
-- Provide first aid guidance when appropriate
-- Be supportive and understanding`
-      },
-      ...history.slice(0, -1).map(msg => ({
-        role: msg.role === 'assistant' ? 'assistant' : 'user',
-        content: msg.content
-      })),
-      { role: 'user', content }
+        content: SYSTEM_PROMPT
+      }
     ];
 
-    // Get AI response
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages,
-      max_tokens: 500,
-      temperature: 0.7
-    });
-
-    const aiResponse = completion.choices[0].message.content;
-
-    // Save assistant message
-    const assistantMessage = new ChatMessage({
-      userId: req.userId,
-      role: 'assistant',
-      content: aiResponse,
-      sessionId: userMessage.sessionId,
-      type: 'advice'
-    });
-    await assistantMessage.save();
-
-    res.json({
-      success: true,
-      userMessage,
-      assistantMessage,
-      response: aiResponse
-    });
-  } catch (error) {
-    console.error('Chat error:', error);
-    
-    // Fallback response if OpenAI fails
-    const fallbackResponse = 'I apologize, but I\'m having trouble connecting right now. Please try again or consult with a healthcare professional for immediate concerns.';
-    
-    const assistantMessage = new ChatMessage({
-      userId: req.userId,
-      role: 'assistant',
-      content: fallbackResponse,
-      sessionId: req.body.sessionId || `session_${Date.now()}`,
-      type: 'text'
-    });
-    await assistantMessage.save();
-
-    res.json({
-      success: true,
-      response: fallbackResponse,
-      assistantMessage
-    });
-  }
-};
-
-export const getChatHistory = async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    
-    const messages = await ChatMessage.find({
-      userId: req.userId,
-      sessionId
-    }).sort({ createdAt: 1 });
-
-    res.json({
-      success: true,
-      count: messages.length,
-      messages
-    });
-  } catch (error) {
-    console.error('Get chat history error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-};
-
-export const getMyChatSessions = async (req, res) => {
-  try {
-    const sessions = await ChatMessage.aggregate([
-      { $match: { userId: req.userId } },
-      { $sort: { createdAt: -1 } },
-      {
-        $group: {
-          _id: '$sessionId',
-          lastMessage: { $first: '$content' },
-          lastMessageTime: { $first: '$createdAt' },
-          messageCount: { $sum: 1 }
+    // Add conversation history (limit to last 10 messages for context)
+    if (conversationHistory && Array.isArray(conversationHistory)) {
+      const recentHistory = conversationHistory.slice(-10);
+      recentHistory.forEach(msg => {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          messages.push({
+            role: msg.role,
+            content: msg.content
+          });
         }
-      },
-      { $sort: { lastMessageTime: -1 } }
-    ]);
+      });
+    }
 
-    res.json({
+    // Add current user message
+    messages.push({
+      role: 'user',
+      content: message
+    });
+
+    // Call OpenAI API
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-3.5-turbo', // Using GPT-3.5 for cost efficiency
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 500,
+      top_p: 1,
+      frequency_penalty: 0.5,
+      presence_penalty: 0.5
+    });
+
+    const aiResponse = completion.choices[0]?.message?.content || 
+      'I apologize, but I could not generate a response. Please try again.';
+
+    res.status(200).json({
       success: true,
-      count: sessions.length,
-      sessions
+      response: aiResponse,
+      usage: {
+        promptTokens: completion.usage?.prompt_tokens,
+        completionTokens: completion.usage?.completion_tokens,
+        totalTokens: completion.usage?.total_tokens
+      }
+    });
+
+  } catch (error) {
+    console.error('Chatbot error:', error);
+
+    // Handle specific OpenAI errors
+    if (error.code === 'insufficient_quota') {
+      return res.status(503).json({
+        success: false,
+        message: 'AI service quota exceeded',
+        response: 'I apologize, but the AI service is temporarily unavailable. Please try again later.'
+      });
+    }
+
+    if (error.code === 'invalid_api_key') {
+      return res.status(503).json({
+        success: false,
+        message: 'AI service configuration error',
+        response: 'I apologize, but there is a configuration issue. Please contact support.'
+      });
+    }
+
+    // Generic error response
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while processing your request',
+      response: 'I apologize, but I encountered an error. Please try again or contact support if the issue persists.'
+    });
+  }
+};
+
+// Health check endpoint
+exports.healthCheck = async (req, res) => {
+  try {
+    const isConfigured = !!process.env.OPENAI_API_KEY;
+    
+    res.status(200).json({
+      success: true,
+      status: isConfigured ? 'online' : 'not configured',
+      model: 'gpt-3.5-turbo'
     });
   } catch (error) {
-    console.error('Get sessions error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    res.status(500).json({
+      success: false,
+      message: 'Service unavailable'
+    });
+  }
+};
+
+// Get conversation suggestions based on common health topics
+exports.getSuggestions = async (req, res) => {
+  try {
+    const suggestions = [
+      'What are the symptoms of common cold?',
+      'How can I improve my sleep quality?',
+      'What is a balanced diet?',
+      'When should I see a doctor for a headache?',
+      'How to manage stress effectively?',
+      'What are the benefits of regular exercise?',
+      'How much water should I drink daily?',
+      'What are the signs of high blood pressure?'
+    ];
+
+    res.status(200).json({
+      success: true,
+      suggestions
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get suggestions'
+    });
   }
 };

@@ -1,60 +1,57 @@
-import mongoose from 'mongoose';
-import bcryptjs from 'bcryptjs';
+// backend/models/User.js
+const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-  role: { type: String, enum: ['doctor', 'patient', 'admin'], required: true },
-  avatar: String,
-  phoneNumber: String,
-  address: String,
-  isActive: { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
-
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  const salt = await bcryptjs.genSalt(10);
-  this.password = await bcryptjs.hash(this.password, salt);
-  next();
-});
-
-userSchema.methods.matchPassword = async function(enteredPassword) {
-  return await bcryptjs.compare(enteredPassword, this.password);
-};
-
-export default mongoose.model('User', userSchema);
-```
-
-### backend/models/Doctor.js
-```javascript
-import mongoose from 'mongoose';
-
-const doctorSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
-  specialty: { type: String, required: true },
-  licenseNumber: String,
-  experience: Number,
-  qualification: String,
-  bio: String,
-  rating: { type: Number, default: 4.5, min: 0, max: 5 },
-  isAvailable: { type: Boolean, default: true },
-  consultationFee: { type: Number, default: 500 },
-  workingHours: {
-    monday: { start: String, end: String, available: { type: Boolean, default: true } },
-    tuesday: { start: String, end: String, available: { type: Boolean, default: true } },
-    wednesday: { start: String, end: String, available: { type: Boolean, default: true } },
-    thursday: { start: String, end: String, available: { type: Boolean, default: true } },
-    friday: { start: String, end: String, available: { type: Boolean, default: true } },
-    saturday: { start: String, end: String, available: { type: Boolean, default: false } },
-    sunday: { start: String, end: String, available: { type: Boolean, default: false } }
+  name: {
+    type: String,
+    required: [true, 'Please provide a name'],
+    trim: true,
+    maxlength: [50, 'Name cannot be more than 50 characters']
   },
-  patients: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Patient' }],
-  totalAppointments: { type: Number, default: 0 },
-  completedAppointments: { type: Number, default: 0 },
-  createdAt: { type: Date, default: Date.now }
+  email: {
+    type: String,
+    required: [true, 'Please provide an email'],
+    unique: true,
+    lowercase: true,
+    trim: true,
+    match: [
+      /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
+      'Please provide a valid email'
+    ]
+  },
+  password: {
+    type: String,
+    required: [true, 'Please provide a password'],
+    minlength: [6, 'Password must be at least 6 characters'],
+    select: false // Don't return password by default
+  },
+  role: {
+    type: String,
+    enum: ['patient', 'doctor', 'admin'],
+    default: 'patient'
+  },
+  phone: {
+    type: String,
+    trim: true
+  },
+  address: {
+    type: String,
+    trim: true
+  },
+  dateOfBirth: {
+    type: Date
+  },
+  isVerified: {
+    type: Boolean,
+    default: false
+  },
+  resetPasswordToken: String,
+  resetPasswordExpire: Date
+}, {
+  timestamps: true
 });
 
-export default mongoose.model('Doctor', doctorSchema);
+// Add index for faster queries
+userSchema.index({ email: 1 });
+
+module.exports = mongoose.model('User', userSchema);
