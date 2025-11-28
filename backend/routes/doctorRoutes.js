@@ -1,25 +1,18 @@
 import express from 'express';
+import {
+  getAllDoctors,
+  getDoctorProfile,
+  updateDoctorProfile,
+  getDoctorPatients
+} from '../controllers/doctorController.js';
 import { authMiddleware } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
-// Get available doctors
-router.get('/available', async (req, res) => {
-  try {
-    // Implement available doctors fetch
-    res.json({ doctors: [] });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Get doctor profile
-router.get('/:id', authMiddleware, async (req, res) => {
-  try {
-    res.json({ message: 'Doctor profile' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+router.get('/', getAllDoctors);
+router.get('/profile', authMiddleware, getDoctorProfile);
+router.put('/profile', authMiddleware, updateDoctorProfile);
+router.get('/patients', authMiddleware, getDoctorPatients);
+router.get('/:id', getDoctorProfile);
 
 export default router;

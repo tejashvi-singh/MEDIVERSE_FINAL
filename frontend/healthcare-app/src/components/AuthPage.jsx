@@ -1,102 +1,95 @@
-import React, { useState } from 'react'
-import { User, Lock, Mail, Stethoscope, UserCircle } from 'lucide-react'
+import React, { useState } from 'react';
+import { User, Lock, Mail, Stethoscope, UserCircle } from 'lucide-react';
+import { authAPI } from '../services/api';
+import { SPECIALTIES } from '../utils/constants';
 
 function AuthPage({ onLogin }) {
-  const [mode, setMode] = useState('landing') // landing, login, signup
-  const [userType, setUserType] = useState('patient')
+  const [mode, setMode] = useState('landing');
+  const [userType, setUserType] = useState('patient');
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     specialty: '',
     age: '',
-    phone: ''
-  })
-  const [errors, setErrors] = useState({})
+    gender: '',
+    phoneNumber: ''
+  });
+  const [errors, setErrors] = useState({});
 
   const validateForm = () => {
-    const newErrors = {}
+    const newErrors = {};
     
     if (!formData.email) {
-      newErrors.email = 'Email is required'
+      newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid'
+      newErrors.email = 'Email is invalid';
     }
     
     if (!formData.password) {
-      newErrors.password = 'Password is required'
+      newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters'
+      newErrors.password = 'Password must be at least 6 characters';
     }
     
     if (mode === 'signup') {
-      if (!formData.name) newErrors.name = 'Name is required'
+      if (!formData.name) newErrors.name = 'Name is required';
       if (userType === 'doctor' && !formData.specialty) {
-        newErrors.specialty = 'Specialty is required'
-      }
-      if (userType === 'patient' && !formData.age) {
-        newErrors.age = 'Age is required'
+        newErrors.specialty = 'Specialty is required';
       }
     }
     
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     
-    if (!validateForm()) return
+    if (!validateForm()) return;
 
-    // Simulate API call
-    const user = {
-      id: Date.now().toString(),
-      email: formData.email,
-      name: formData.name || formData.email.split('@')[0],
-      role: userType,
-      avatar: userType === 'doctor' ? '👨‍⚕️' : '👤',
-      ...(userType === 'doctor' && { specialty: formData.specialty || 'General Medicine' }),
-      ...(userType === 'patient' && { age: formData.age || 30 })
-    }
+    setLoading(true);
+    setErrors({});
 
-    // Save to localStorage (mock database)
-    const users = JSON.parse(localStorage.getItem('users') || '[]')
-    
-    if (mode === 'signup') {
-      // Check if user exists
-      const existingUser = users.find(u => u.email === formData.email)
-      if (existingUser) {
-        setErrors({ email: 'User already exists' })
-        return
+    try {
+      let response;
+      if (mode === 'signup') {
+        response = await authAPI.signup({
+          ...formData,
+          role: userType
+        });
+      } else {
+        response = await authAPI.login({
+          email: formData.email,
+          password: formData.password
+        });
       }
-      users.push({ ...user, password: formData.password })
-      localStorage.setItem('users', JSON.stringify(users))
-    } else {
-      // Login validation
-      const existingUser = users.find(
-        u => u.email === formData.email && u.password === formData.password
-      )
-      if (!existingUser) {
-        setErrors({ email: 'Invalid credentials' })
-        return
-      }
-      Object.assign(user, existingUser)
-    }
 
-    onLogin(user)
-  }
+      if (response.data.success) {
+        onLogin(response.data.user, response.data.token);
+      }
+    } catch (error) {
+      console.error('Auth error:', error);
+      setErrors({
+        submit: error.response?.data?.message || 'Authentication failed'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGuestLogin = () => {
+    // For demo purposes - create a guest user
     const guestUser = {
       id: 'guest_' + Date.now(),
       name: 'Guest User',
-      email: 'guest@temp.com',
+      email: 'guest@demo.com',
       role: 'patient',
-      age: 25,
-      avatar: '👤'
-    }
-    onLogin(guestUser, true)
-  }
+      isGuest: true
+    };
+    onLogin(guestUser, 'guest-token');
+  };
 
   if (mode === 'landing') {
     return (
@@ -107,12 +100,12 @@ function AuthPage({ onLogin }) {
               🏥 Healthcare Platform
             </h1>
             <p className="text-xl text-gray-600">
-              Your Complete Medical Management Solution
+              Complete Medical Management Solution with AI
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-shadow">
+            <div className="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-105">
               <div className="text-center mb-6">
                 <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Stethoscope className="w-10 h-10 text-blue-600" />
@@ -122,13 +115,13 @@ function AuthPage({ onLogin }) {
               </div>
               <div className="space-y-3">
                 <button
-                  onClick={() => { setMode('login'); setUserType('doctor') }}
+                  onClick={() => { setMode('login'); setUserType('doctor'); }}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
                 >
                   Login as Doctor
                 </button>
                 <button
-                  onClick={() => { setMode('signup'); setUserType('doctor') }}
+                  onClick={() => { setMode('signup'); setUserType('doctor'); }}
                   className="w-full border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold py-3 rounded-lg transition-colors"
                 >
                   Register as Doctor
@@ -136,7 +129,7 @@ function AuthPage({ onLogin }) {
               </div>
             </div>
 
-            <div className="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-shadow">
+            <div className="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-105">
               <div className="text-center mb-6">
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <UserCircle className="w-10 h-10 text-green-600" />
@@ -146,13 +139,13 @@ function AuthPage({ onLogin }) {
               </div>
               <div className="space-y-3">
                 <button
-                  onClick={() => { setMode('login'); setUserType('patient') }}
+                  onClick={() => { setMode('login'); setUserType('patient'); }}
                   className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
                 >
                   Login as Patient
                 </button>
                 <button
-                  onClick={() => { setMode('signup'); setUserType('patient') }}
+                  onClick={() => { setMode('signup'); setUserType('patient'); }}
                   className="w-full border-2 border-green-600 text-green-600 hover:bg-green-50 font-semibold py-3 rounded-lg transition-colors"
                 >
                   Register as Patient
@@ -167,12 +160,12 @@ function AuthPage({ onLogin }) {
               className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium"
             >
               <User className="w-5 h-5" />
-              Continue as Guest (No Registration)
+              Continue as Guest (Demo Mode)
             </button>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -198,6 +191,12 @@ function AuthPage({ onLogin }) {
           </h2>
         </div>
 
+        {errors.submit && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+            {errors.submit}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'signup' && (
             <div>
@@ -208,6 +207,7 @@ function AuthPage({ onLogin }) {
                 <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
                 <input
                   type="text"
+                  required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -226,6 +226,7 @@ function AuthPage({ onLogin }) {
               <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
               <input
                 type="email"
+                required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -243,10 +244,11 @@ function AuthPage({ onLogin }) {
               <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
               <input
                 type="password"
+                required
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter password"
+                placeholder="Enter password (min 6 characters)"
               />
             </div>
             {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
@@ -258,42 +260,65 @@ function AuthPage({ onLogin }) {
                 Specialty *
               </label>
               <select
+                required
                 value={formData.specialty}
                 onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Select Specialty</option>
-                <option value="General Medicine">General Medicine</option>
-                <option value="Cardiology">Cardiology</option>
-                <option value="Pediatrics">Pediatrics</option>
-                <option value="Orthopedics">Orthopedics</option>
-                <option value="Dermatology">Dermatology</option>
+                {SPECIALTIES.map(spec => (
+                  <option key={spec} value={spec}>{spec}</option>
+                ))}
               </select>
               {errors.specialty && <p className="text-red-500 text-sm mt-1">{errors.specialty}</p>}
             </div>
           )}
 
           {mode === 'signup' && userType === 'patient' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Age *
-              </label>
-              <input
-                type="number"
-                value={formData.age}
-                onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter your age"
-              />
-              {errors.age && <p className="text-red-500 text-sm mt-1">{errors.age}</p>}
-            </div>
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Age
+                </label>
+                <input
+                  type="number"
+                  value={formData.age}
+                  onChange={(e) => setFormData({ ...formData, age: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter your age"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Gender
+                </label>
+                <select
+                  value={formData.gender}
+                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </>
           )}
 
           <button
             type="submit"
-            className={`w-full ${userType === 'doctor' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'} text-white font-semibold py-3 rounded-lg transition-colors`}
+            disabled={loading}
+            className={`w-full ${userType === 'doctor' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'} text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            {mode === 'login' ? 'Login' : 'Create Account'}
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Processing...
+              </span>
+            ) : (
+              mode === 'login' ? 'Login' : 'Create Account'
+            )}
           </button>
         </form>
 
@@ -307,7 +332,7 @@ function AuthPage({ onLogin }) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default AuthPage
+export default AuthPage;
