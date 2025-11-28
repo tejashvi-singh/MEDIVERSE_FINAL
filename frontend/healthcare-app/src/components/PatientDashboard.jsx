@@ -578,6 +578,149 @@ function PatientDashboard({ user, onLogout }) {
         </div>
       </div>
 
+   
+      
       {/* Booking Modal */}
       {showBooking && (
-        <div
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold">Book Appointment</h3>
+              <button 
+                onClick={() => setShowBooking(false)} 
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleBookAppointment} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Select Doctor *</label>
+                <select
+                  required
+                  value={bookingForm.doctorId}
+                  onChange={(e) => {
+                    const selectedDoc = doctors.find(d => d._id === e.target.value);
+                    setBookingForm({
+                      ...bookingForm,
+                      doctorId: e.target.value,
+                      specialty: selectedDoc?.specialty || ''
+                    });
+                  }}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Choose a doctor</option>
+                  {doctors.map(doc => (
+                    <option key={doc._id} value={doc._id}>
+                      {doc.userId?.name} - {doc.specialty} (₹{doc.consultationFee})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Date *</label>
+                  <input
+                    type="date"
+                    required
+                    min={new Date().toISOString().split('T')[0]}
+                    value={bookingForm.date}
+                    onChange={(e) => setBookingForm({ ...bookingForm, date: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Time *</label>
+                  <select
+                    required
+                    value={bookingForm.time}
+                    onChange={(e) => setBookingForm({ ...bookingForm, time: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select time</option>
+                    {['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', 
+                      '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00'].map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Reason for Visit *</label>
+                <textarea
+                  required
+                  value={bookingForm.reason}
+                  onChange={(e) => setBookingForm({ ...bookingForm, reason: e.target.value })}
+                  rows="3"
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                  placeholder="Describe your health concern..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Symptoms (comma-separated)</label>
+                <input
+                  type="text"
+                  value={bookingForm.symptoms}
+                  onChange={(e) => setBookingForm({ ...bookingForm, symptoms: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., fever, headache, cough"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowBooking(false)}
+                  className="flex-1 border border-gray-300 text-gray-700 py-3 rounded-lg hover:bg-gray-50 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium disabled:opacity-50"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Booking...
+                    </span>
+                  ) : (
+                    'Book Appointment'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Medical Record Viewer Modal */}
+      {selectedRecord && (
+        <MedicalRecordViewer 
+          record={selectedRecord} 
+          onClose={() => setSelectedRecord(null)} 
+        />
+      )}
+
+      {/* AI Chatbot */}
+      <AIChatbot 
+        isOpen={showChatbot} 
+        onClose={() => setShowChatbot(false)} 
+        userRole="patient" 
+      />
+
+      {/* Emergency Modal */}
+      {showEmergency && (
+        <EmergencyModal onClose={() => setShowEmergency(false)} />
+      )}
+    </div>
+  );
+}
+
+export default PatientDashboard;
+        
