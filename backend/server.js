@@ -1,125 +1,87 @@
-// backend/server.js (ESM)
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-// Load environment variables
 dotenv.config();
 
 const app = express();
 
-// Middleware
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// CORS Configuration
-const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
-  optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
-app.use(cors(corsOptions));
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 
 // MongoDB Connection
-const connectDB = async () => {
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('✅ MongoDB Connected'))
+  .catch(err => console.error('❌ MongoDB Error:', err));
+
+// Simple User Schema
+const userSchema = new mongoose.Schema({
+  name: String,
+  email: { type: String, unique: true },
+  password: String,
+  role: { type: String, default: 'patient' },
+  specialty: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
+const User = mongoose.model('User', userSchema);
+
+// Register Route
+app.post('/api/auth/register', async (req, res) => {
   try {
-    const conn = await mongoose.connect(
-      process.env.MONGODB_URI || 'mongodb://localhost:27017/mediverse'
-    );
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    console.error(`❌ MongoDB Connection Error: ${error.message}`);
-    process.exit(1);
-  }
-};
+    const { name, email, password, role, specialty } = req.body;
 
-connectDB();
-
-// Import Routes (ESM requires .js extension explicitly)
-import authRoutes from './routes/authRoutes.js';
-import appointmentRoutes from './routes/appointmentRoutes.js';
-import chatbotRoutes from './routes/chatbotRoutes.js';
-import userRoutes from './routes/userRoutes.js';
-import medicalRecordRoutes from './routes/medicalRecordRoutes.js';
-
-// Use Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/appointments', appointmentRoutes);
-app.use('/api/chatbot', chatbotRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/medical-records', medicalRecordRoutes);
-
-// Health check route
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'MEDIVERSE Server is running',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Root route
-app.get('/', (req, res) => {
-  res.json({
-    message: 'Welcome to MEDIVERSE API',
-    version: '1.0.0',
-    endpoints: {
-      auth: '/api/auth',
-      appointments: '/api/appointments',
-      chatbot: '/api/chatbot',
-      users: '/api/users',
-      medicalRecords: '/api/medical-records'
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Email already exists' });
     }
-  });
-});
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await User.create({ name, email, password: hashed, role, specialty });
 
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found'
-  });
-});
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-const PORT = process.env.PORT || 5000;
-
-const server = app.listen(PORT, () => {
-  console.log(`
-  ╔══════════════════════════════════════╗
-  ║                                      ║
-  ║   🏥 MEDIVERSE Server Running       ║
-  ║                                      ║
-  ║   Port: ${PORT}                        ║
-  ║   Environment: ${process.env.NODE_ENV || 'development'}          ║
-  ║                                      ║
-  ╚══════════════════════════════════════╝
-  `);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  server.close(() => {
-    console.log('HTTP server closed');
-    mongoose.connection.close(false, () => {
-      console.log('MongoDB connection closed');
-      process.exit(0);
+    res.json({
+      success: true,
+      token,
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, specialty: user.specialty }
     });
-  });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
-// Export (ESM)
-export default app;
+// Login Route
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return res.status(400).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+
+    res.json({
+      success: true,
+      token,
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, specialty: user.specialty }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.get('/', (req, res) => res.json({ message: 'Healthcare API Running' }));
+
+const PORT = process.env.PORT || 5001;
+app.listen(PORT, () => console.log(`🏥 Server running on port ${PORT}`));

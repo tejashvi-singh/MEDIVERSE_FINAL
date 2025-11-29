@@ -1,252 +1,327 @@
-import React, { useEffect, useState, useRef } from "react";
-import { MessageCircle, Send, X, Minimize2, Bot, User as UserIcon, Loader } from "lucide-react";
-import { chatAPI } from "../services/api";
+import React, { useState } from "react";
+import {
+  MessageCircle,
+  Send,
+  X,
+  Minimize2,
+  Bot,
+  User
+} from "lucide-react";
 
-function AIChatbot({ isOpen, onClose, userRole }) {
+function AIChatbot({ onClose, userRole }) {
   const [messages, setMessages] = useState([
-    { 
-      role: 'assistant', 
-      content: 'Hello! I\'m your AI Healthcare Assistant. How can I help you today?',
+    {
+      role: "assistant",
+      content:
+        "Hello! I'm your AI Healthcare Assistant. How can I help you today?",
       timestamp: new Date()
     }
   ]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+
+  const [input, setInput] = useState("");
   const [isMinimized, setIsMinimized] = useState(false);
-  const [sessionId] = useState(`session_${Date.now()}`);
-  const messagesEndRef = useRef(null);
-  const inputRef = useRef(null);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  // send message
+  const handleSend = () => {
+    if (!input.trim()) return;
 
-  useEffect(() => {
-    if (isOpen && !isMinimized) {
-      inputRef.current?.focus();
-    }
-  }, [isOpen, isMinimized]);
-
-  const handleSendMessage = async () => {
-    if (!input.trim() || loading) return;
-
-    const userMessage = {
-      role: 'user',
-      content: input.trim(),
+    const userMsg = {
+      role: "user",
+      content: input,
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setLoading(true);
+    setMessages(prev => [...prev, userMsg]);
 
-    try {
-      // Call the backend API which uses OpenAI
-      const response = await chatAPI.sendMessage({
-        content: userMessage.content,
-        sessionId: sessionId
-      });
+    setTimeout(() => {
+      const reply =
+        input.toLowerCase().includes("fever")
+          ? "For fever: Rest, stay hydrated, take paracetamol. See a doctor if it persists."
+          : "I'm here to help with health questions. What would you like to know?";
 
-      if (response.data.success) {
-        const assistantMessage = {
-          role: 'assistant',
-          content: response.data.response,
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-      }
-    } catch (error) {
-      console.error('Chat error:', error);
-      
-      // Fallback response if API fails
-      const fallbackMessage = {
-        role: 'assistant',
-        content: 'I apologize, but I\'m having trouble connecting right now. Please try again in a moment, or consult with a healthcare professional for immediate concerns.',
-        timestamp: new Date(),
-        isError: true
-      };
-      setMessages(prev => [...prev, fallbackMessage]);
-    } finally {
-      setLoading(false);
-    }
+      setMessages(prev => [
+        ...prev,
+        { role: "assistant", content: reply, timestamp: new Date() }
+      ]);
+    }, 1000);
+
+    setInput("");
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const quickPrompts = userRole === 'patient' ? [
-    "What should I do for a fever?",
-    "I have a headache",
-    "How to manage stress?",
-    "Tips for better sleep"
-  ] : [
-    "Common symptoms of diabetes",
-    "Treatment for hypertension",
-    "Drug interactions checker",
-    "Emergency protocols"
-  ];
-
-  const handleQuickPrompt = (prompt) => {
-    setInput(prompt);
-    inputRef.current?.focus();
-  };
-
-  if (!isOpen) return null;
-
+  // minimized widget
   if (isMinimized) {
     return (
-      <div className="fixed bottom-4 right-4 z-40">
-        <button 
-          onClick={() => setIsMinimized(false)} 
-          className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-5 py-3 rounded-xl flex items-center gap-2 shadow-lg hover:shadow-xl transition-all"
+      <div
+        style={{
+          position: "fixed",
+          bottom: "20px",
+          right: "20px",
+          zIndex: 999999,
+        }}
+      >
+        <button
+          onClick={() => setIsMinimized(false)}
+          style={{
+            background: "linear-gradient(135deg,#2196F3,#1976D2)",
+            color: "white",
+            border: "none",
+            padding: "12px 20px",
+            borderRadius: "12px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+          }}
         >
-          <MessageCircle className="w-5 h-5" />
-          <span className="font-medium">AI Assistant</span>
-          {messages.length > 1 && (
-            <span className="bg-white text-blue-600 text-xs px-2 py-0.5 rounded-full font-bold">
-              {messages.length - 1}
-            </span>
-          )}
+          <MessageCircle size={20} />
+          AI Assistant
+          <span
+            style={{
+              background: "white",
+              color: "#2196F3",
+              fontSize: "11px",
+              padding: "2px 6px",
+              borderRadius: "10px",
+              fontWeight: "600"
+            }}
+          >
+            {messages.length - 1}
+          </span>
         </button>
       </div>
     );
   }
 
+  // full chat window
   return (
-    <div className="fixed bottom-4 right-4 z-40 w-96 bg-white rounded-xl shadow-2xl flex flex-col h-[600px] border border-gray-200">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 rounded-t-xl flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-            <Bot className="w-6 h-6 text-blue-600" />
+    <div
+      style={{
+        position: "fixed",
+        bottom: "20px",
+        right: "20px",
+        width: "400px",
+        height: "600px",
+        background: "white",
+        borderRadius: "16px",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
+        display: "flex",
+        flexDirection: "column",
+        zIndex: 999999,     // 🔥 FIXED
+        pointerEvents: "auto", // 🔥 FIXED
+      }}
+    >
+      {/* header */}
+      <div
+        style={{
+          padding: "15px",
+          background: "linear-gradient(135deg,#2196F3,#1976D2)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderRadius: "16px 16px 0 0",
+          color: "white"
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              background: "rgba(255,255,255,0.25)",
+              borderRadius: "50%",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center"
+            }}
+          >
+            <Bot size={22} />
           </div>
           <div>
-            <h3 className="font-bold">AI Healthcare Assistant</h3>
-            <p className="text-xs opacity-90">Powered by OpenAI</p>
+            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 600 }}>
+              AI Assistant
+            </h3>
+            <p style={{ margin: 0, fontSize: "12px", opacity: 0.9 }}>
+              Powered by AI
+            </p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setIsMinimized(true)} 
-            className="hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-colors"
+
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button
+            onClick={() => setIsMinimized(true)}
+            style={{
+              background: "rgba(255,255,255,0.2)",
+              border: "none",
+              width: "32px",
+              height: "32px",
+              borderRadius: "8px",
+              cursor: "pointer"
+            }}
           >
-            <Minimize2 className="w-5 h-5" />
+            <Minimize2 size={18} color="white" />
           </button>
-          <button 
-            onClick={onClose} 
-            className="hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-colors"
+
+          <button
+            onClick={onClose}
+            style={{
+              background: "rgba(255,255,255,0.2)",
+              border: "none",
+              width: "32px",
+              height: "32px",
+              borderRadius: "8px",
+              cursor: "pointer"
+            }}
           >
-            <X className="w-5 h-5" />
+            <X size={18} color="white" />
           </button>
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-50 to-white">
-        {messages.map((msg, idx) => (
-          <div 
-            key={idx} 
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+      {/* messages */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "20px",
+          background: "linear-gradient(135deg,#f5f5f5,#e3f2fd)"
+        }}
+      >
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            style={{
+              display: "flex",
+              justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
+              marginBottom: "15px"
+            }}
           >
-            <div className={`flex gap-2 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                msg.role === 'user' 
-                  ? 'bg-blue-600' 
-                  : msg.isError 
-                    ? 'bg-red-500' 
-                    : 'bg-gradient-to-br from-indigo-500 to-purple-600'
-              }`}>
-                {msg.role === 'user' ? (
-                  <UserIcon className="w-5 h-5 text-white" />
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                maxWidth: "80%",
+                flexDirection: msg.role === "user" ? "row-reverse" : "row"
+              }}
+            >
+              <div
+                style={{
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "50%",
+                  background:
+                    msg.role === "user"
+                      ? "linear-gradient(135deg,#f093fb,#f5576c)"
+                      : "linear-gradient(135deg,#667eea,#764ba2)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+              >
+                {msg.role === "user" ? (
+                  <User size={18} color="white" />
                 ) : (
-                  <Bot className="w-5 h-5 text-white" />
+                  <Bot size={18} color="white" />
                 )}
               </div>
+
               <div>
-                <div className={`px-4 py-3 rounded-2xl ${
-                  msg.role === 'user' 
-                    ? 'bg-blue-600 text-white rounded-tr-sm' 
-                    : msg.isError
-                      ? 'bg-red-50 text-red-900 border border-red-200 rounded-tl-sm'
-                      : 'bg-white text-gray-800 shadow-md border border-gray-200 rounded-tl-sm'
-                }`}>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                <div
+                  style={{
+                    padding: "12px 16px",
+                    borderRadius: "12px",
+                    background:
+                      msg.role === "user"
+                        ? "linear-gradient(135deg,#667eea,#764ba2)"
+                        : "white",
+                    color: msg.role === "user" ? "white" : "#333",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                  }}
+                >
+                  <p style={{ margin: 0 }}>{msg.content}</p>
                 </div>
-                <p className={`text-xs text-gray-400 mt-1 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+
+                <p
+                  style={{
+                    margin: "5px 0 0 0",
+                    fontSize: "11px",
+                    color: "#777",
+                    textAlign: msg.role === "user" ? "right" : "left"
+                  }}
+                >
+                  {msg.timestamp.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                  })}
                 </p>
               </div>
             </div>
           </div>
         ))}
-        
-        {loading && (
-          <div className="flex justify-start">
-            <div className="flex gap-2 items-center">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                <Bot className="w-5 h-5 text-white" />
-              </div>
-              <div className="bg-white shadow-md border border-gray-200 px-4 py-3 rounded-2xl rounded-tl-sm flex gap-2 items-center">
-                <Loader className="w-4 h-4 text-blue-600 animate-spin" />
-                <div className="flex gap-1">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Prompts */}
-      {messages.length === 1 && !loading && (
-        <div className="px-4 pb-3 border-t bg-gray-50">
-          <p className="text-xs text-gray-600 mb-2 pt-3">Quick prompts:</p>
-          <div className="grid grid-cols-2 gap-2">
-            {quickPrompts.map((prompt, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleQuickPrompt(prompt)}
-                className="text-xs bg-white hover:bg-blue-50 border border-gray-200 hover:border-blue-300 text-gray-700 px-3 py-2 rounded-lg transition-colors text-left"
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* input */}
+      <div
+        style={{
+          padding: "15px",
+          borderTop: "1px solid #e0e0e0",
+          display: "flex",
+          gap: "10px"
+        }}
+      >
+        <textarea
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyPress={e =>
+            e.key === "Enter" &&
+            !e.shiftKey &&
+            (e.preventDefault(), handleSend())
+          }
+          placeholder="Ask me anything..."
+          style={{
+            flex: 1,
+            padding: "12px",
+            border: "1px solid #ddd",
+            borderRadius: "10px",
+            resize: "none",
+            fontSize: "14px"
+          }}
+        />
 
-      {/* Input */}
-      <div className="border-t p-4 bg-white rounded-b-xl">
-        <div className="flex gap-2">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask me anything about health..."
-            rows="1"
-            className="flex-1 px-4 py-3 text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-            style={{ minHeight: '44px', maxHeight: '120px' }}
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={loading || !input.trim()}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-400 text-white p-3 rounded-xl transition-all disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
-          >
-            <Send className="w-5 h-5" />
-          </button>
-        </div>
-        <p className="text-xs text-gray-400 mt-2 text-center">
-          AI responses are for informational purposes only. Consult a doctor for medical advice.
-        </p>
+        <button
+          onClick={handleSend}
+          disabled={!input.trim()}
+          style={{
+            width: "44px",
+            height: "44px",
+            borderRadius: "10px",
+            background: "linear-gradient(135deg,#667eea,#764ba2)",
+            border: "none",
+            color: "white",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}
+        >
+          <Send size={20} />
+        </button>
       </div>
+
+      {/* footer */}
+      <p
+        style={{
+          fontSize: "11px",
+          textAlign: "center",
+          margin: 0,
+          padding: "6px",
+          background: "#fffde7",
+          borderTop: "1px solid #fbc02d",
+          color: "#777"
+        }}
+      >
+        AI responses are informational only. Consult a doctor for advice.
+      </p>
     </div>
   );
 }

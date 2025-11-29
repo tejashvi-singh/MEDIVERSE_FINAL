@@ -1,166 +1,113 @@
 import React, { useState } from 'react';
 import { User, Lock, Mail, Stethoscope, UserCircle } from 'lucide-react';
-import { authAPI } from '../services/api';
-import { SPECIALTIES } from '../utils/constants';
+
+const API_URL = 'http://localhost:5001/api';
 
 function AuthPage({ onLogin }) {
-  const [mode, setMode] = useState('landing');
+  const [mode, setMode] = useState('landing'); // landing, login, signup
   const [userType, setUserType] = useState('patient');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
-    specialty: '',
-    age: '',
-    gender: '',
-    phoneNumber: ''
+    specialty: ''
   });
-  const [errors, setErrors] = useState({});
-
-  const validateForm = () => {
-    const newErrors = {};
-    
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
-    }
-    
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-    
-    if (mode === 'signup') {
-      if (!formData.name) newErrors.name = 'Name is required';
-      if (userType === 'doctor' && !formData.specialty) {
-        newErrors.specialty = 'Specialty is required';
-      }
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) return;
-
     setLoading(true);
-    setErrors({});
+    setError('');
 
     try {
-      let response;
-      if (mode === 'signup') {
-        response = await authAPI.signup({
-          ...formData,
-          role: userType
-        });
-      } else {
-        response = await authAPI.login({
-          email: formData.email,
-          password: formData.password
-        });
-      }
+      const endpoint = mode === 'login' ? '/auth/login' : '/auth/register';
+      const payload = mode === 'login' 
+        ? { email: formData.email, password: formData.password }
+        : { ...formData, role: userType };
 
-      if (response.data.success) {
-        onLogin(response.data.user, response.data.token);
-      }
-    } catch (error) {
-      console.error('Auth error:', error);
-      setErrors({
-        submit: error.response?.data?.message || 'Authentication failed'
+      const res = await fetch(API_URL + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
+
+      const data = await res.json();
+
+      if (data.success) {
+        localStorage.setItem('token', data.token);
+        onLogin(data.user);
+      } else {
+        setError(data.message);
+      }
+    } catch (err) {
+      setError('Connection failed');
     } finally {
       setLoading(false);
     }
   };
 
   const handleGuestLogin = () => {
-    // For demo purposes - create a guest user
-    const guestUser = {
+    const guest = {
       id: 'guest_' + Date.now(),
       name: 'Guest User',
       email: 'guest@demo.com',
       role: 'patient',
       isGuest: true
     };
-    onLogin(guestUser, 'guest-token');
+    onLogin(guest);
   };
 
   if (mode === 'landing') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
-        <div className="max-w-5xl w-full">
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold text-gray-900 mb-4">
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #e0f7fa 0%, #e1bee7 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div style={{ maxWidth: '1200px', width: '100%' }}>
+          <div style={{ textAlign: 'center', marginBottom: '50px' }}>
+            <h1 style={{ fontSize: '48px', fontWeight: 'bold', color: '#1a237e', marginBottom: '10px' }}>
               🏥 Healthcare Platform
             </h1>
-            <p className="text-xl text-gray-600">
-              Complete Medical Management Solution with AI
+            <p style={{ fontSize: '20px', color: '#424242' }}>
+              Your Complete Medical Management Solution
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-105">
-              <div className="text-center mb-6">
-                <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Stethoscope className="w-10 h-10 text-blue-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">Doctor Portal</h2>
-                <p className="text-gray-600 mt-2">Manage patients, appointments & records</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '30px', marginBottom: '40px' }}>
+            {/* Doctor Card */}
+            <div style={{ background: 'white', padding: '40px', borderRadius: '20px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', textAlign: 'center' }}>
+              <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #2196F3 0%, #1976D2 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                <Stethoscope size={40} color="white" />
               </div>
-              <div className="space-y-3">
-                <button
-                  onClick={() => { setMode('login'); setUserType('doctor'); }}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
-                >
-                  Login as Doctor
-                </button>
-                <button
-                  onClick={() => { setMode('signup'); setUserType('doctor'); }}
-                  className="w-full border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold py-3 rounded-lg transition-colors"
-                >
-                  Register as Doctor
-                </button>
-              </div>
+              <h2 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '10px', color: '#1a237e' }}>Doctor Portal</h2>
+              <p style={{ color: '#666', marginBottom: '30px' }}>Manage patients, appointments & records</p>
+              <button onClick={() => { setMode('login'); setUserType('doctor'); }} style={{ width: '100%', background: '#2196F3', color: 'white', border: 'none', padding: '15px', borderRadius: '10px', fontSize: '16px', fontWeight: '600', marginBottom: '10px', cursor: 'pointer' }}>
+                Login as Doctor
+              </button>
+              <button onClick={() => { setMode('signup'); setUserType('doctor'); }} style={{ width: '100%', background: 'white', color: '#2196F3', border: '2px solid #2196F3', padding: '15px', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: 'pointer' }}>
+                Register as Doctor
+              </button>
             </div>
 
-            <div className="bg-white p-8 rounded-2xl shadow-xl hover:shadow-2xl transition-all hover:scale-105">
-              <div className="text-center mb-6">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <UserCircle className="w-10 h-10 text-green-600" />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">Patient Portal</h2>
-                <p className="text-gray-600 mt-2">Access health records & consultations</p>
+            {/* Patient Card */}
+            <div style={{ background: 'white', padding: '40px', borderRadius: '20px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', textAlign: 'center' }}>
+              <div style={{ width: '80px', height: '80px', background: 'linear-gradient(135deg, #4CAF50 0%, #388E3C 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                <UserCircle size={40} color="white" />
               </div>
-              <div className="space-y-3">
-                <button
-                  onClick={() => { setMode('login'); setUserType('patient'); }}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
-                >
-                  Login as Patient
-                </button>
-                <button
-                  onClick={() => { setMode('signup'); setUserType('patient'); }}
-                  className="w-full border-2 border-green-600 text-green-600 hover:bg-green-50 font-semibold py-3 rounded-lg transition-colors"
-                >
-                  Register as Patient
-                </button>
-              </div>
+              <h2 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '10px', color: '#1a237e' }}>Patient Portal</h2>
+              <p style={{ color: '#666', marginBottom: '30px' }}>Access health records & consultations</p>
+              <button onClick={() => { setMode('login'); setUserType('patient'); }} style={{ width: '100%', background: '#4CAF50', color: 'white', border: 'none', padding: '15px', borderRadius: '10px', fontSize: '16px', fontWeight: '600', marginBottom: '10px', cursor: 'pointer' }}>
+                Login as Patient
+              </button>
+              <button onClick={() => { setMode('signup'); setUserType('patient'); }} style={{ width: '100%', background: 'white', color: '#4CAF50', border: '2px solid #4CAF50', padding: '15px', borderRadius: '10px', fontSize: '16px', fontWeight: '600', cursor: 'pointer' }}>
+                Register as Patient
+              </button>
             </div>
           </div>
 
-          <div className="text-center">
-            <button
-              onClick={handleGuestLogin}
-              className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 font-medium"
-            >
-              <User className="w-5 h-5" />
-              Continue as Guest (Demo Mode)
+          <div style={{ textAlign: 'center' }}>
+            <button onClick={handleGuestLogin} style={{ background: 'transparent', border: 'none', color: '#666', fontSize: '16px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+              <User size={20} />
+              Continue as Guest (No Registration)
             </button>
           </div>
         </div>
@@ -168,165 +115,72 @@ function AuthPage({ onLogin }) {
     );
   }
 
+  // Login/Signup Form
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full">
-        <button
-          onClick={() => setMode('landing')}
-          className="text-gray-600 hover:text-gray-900 mb-4"
-        >
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #e0f7fa 0%, #e1bee7 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ background: 'white', padding: '40px', borderRadius: '20px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', maxWidth: '500px', width: '100%' }}>
+        <button onClick={() => setMode('landing')} style={{ background: 'transparent', border: 'none', color: '#666', marginBottom: '20px', cursor: 'pointer', fontSize: '14px' }}>
           ← Back
         </button>
 
-        <div className="text-center mb-8">
-          <div className={`w-16 h-16 ${userType === 'doctor' ? 'bg-blue-100' : 'bg-green-100'} rounded-full flex items-center justify-center mx-auto mb-4`}>
-            {userType === 'doctor' ? (
-              <Stethoscope className={`w-8 h-8 ${userType === 'doctor' ? 'text-blue-600' : 'text-green-600'}`} />
-            ) : (
-              <UserCircle className={`w-8 h-8 ${userType === 'doctor' ? 'text-blue-600' : 'text-green-600'}`} />
-            )}
+        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+          <div style={{ width: '60px', height: '60px', background: userType === 'doctor' ? '#2196F3' : '#4CAF50', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 15px' }}>
+            {userType === 'doctor' ? <Stethoscope size={30} color="white" /> : <UserCircle size={30} color="white" />}
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#1a237e' }}>
             {mode === 'login' ? 'Login' : 'Sign Up'} as {userType === 'doctor' ? 'Doctor' : 'Patient'}
           </h2>
         </div>
 
-        {errors.submit && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-            {errors.submit}
-          </div>
-        )}
+        {error && <div style={{ background: '#ffebee', color: '#c62828', padding: '10px', borderRadius: '8px', marginBottom: '20px', fontSize: '14px' }}>{error}</div>}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {mode === 'signup' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name *
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your full name"
-                />
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '14px' }}>Full Name *</label>
+              <div style={{ position: 'relative' }}>
+                <User size={20} style={{ position: 'absolute', left: '10px', top: '10px', color: '#999' }} />
+                <input type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} style={{ width: '100%', padding: '10px 10px 10px 40px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px' }} placeholder="Enter your full name" />
               </div>
-              {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address *
-            </label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-              <input
-                type="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="your@email.com"
-              />
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '14px' }}>Email Address *</label>
+            <div style={{ position: 'relative' }}>
+              <Mail size={20} style={{ position: 'absolute', left: '10px', top: '10px', color: '#999' }} />
+              <input type="email" required value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} style={{ width: '100%', padding: '10px 10px 10px 40px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px' }} placeholder="your@email.com" />
             </div>
-            {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password *
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-              <input
-                type="password"
-                required
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter password (min 6 characters)"
-              />
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '14px' }}>Password *</label>
+            <div style={{ position: 'relative' }}>
+              <Lock size={20} style={{ position: 'absolute', left: '10px', top: '10px', color: '#999' }} />
+              <input type="password" required value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} style={{ width: '100%', padding: '10px 10px 10px 40px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px' }} placeholder="Enter password (min 6 characters)" />
             </div>
-            {errors.password && <p className="text-red-500 text-sm mt-1">{errors.password}</p>}
           </div>
 
           {mode === 'signup' && userType === 'doctor' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Specialty *
-              </label>
-              <select
-                required
-                value={formData.specialty}
-                onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500', fontSize: '14px' }}>Specialty *</label>
+              <select required value={formData.specialty} onChange={e => setFormData({ ...formData, specialty: e.target.value })} style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '14px' }}>
                 <option value="">Select Specialty</option>
-                {SPECIALTIES.map(spec => (
-                  <option key={spec} value={spec}>{spec}</option>
-                ))}
+                <option value="General Medicine">General Medicine</option>
+                <option value="Cardiology">Cardiology</option>
+                <option value="Dermatology">Dermatology</option>
+                <option value="Pediatrics">Pediatrics</option>
               </select>
-              {errors.specialty && <p className="text-red-500 text-sm mt-1">{errors.specialty}</p>}
             </div>
           )}
 
-          {mode === 'signup' && userType === 'patient' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Age
-                </label>
-                <input
-                  type="number"
-                  value={formData.age}
-                  onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter your age"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Gender
-                </label>
-                <select
-                  value={formData.gender}
-                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-            </>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full ${userType === 'doctor' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'} text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Processing...
-              </span>
-            ) : (
-              mode === 'login' ? 'Login' : 'Create Account'
-            )}
+          <button type="submit" disabled={loading} style={{ width: '100%', background: userType === 'doctor' ? '#2196F3' : '#4CAF50', color: 'white', border: 'none', padding: '15px', borderRadius: '8px', fontSize: '16px', fontWeight: '600', cursor: 'pointer', marginTop: '10px' }}>
+            {loading ? 'Processing...' : (mode === 'login' ? 'Login' : 'Create Account')}
           </button>
         </form>
 
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-            className="text-sm text-gray-600 hover:text-gray-900"
-          >
+        <div style={{ textAlign: 'center', marginTop: '20px' }}>
+          <button onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} style={{ background: 'transparent', border: 'none', color: '#666', fontSize: '14px', cursor: 'pointer' }}>
             {mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Login'}
           </button>
         </div>

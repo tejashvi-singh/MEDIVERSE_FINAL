@@ -1,170 +1,171 @@
-/* frontend/src/components/DoctorDashboard.css */
-.doctor-dashboard {
-    min-height: 100vh;
-    background: #f5f7fa;
-  }
+import React, { useState } from 'react';
+import { Activity, Calendar, Users, FileText, MessageCircle, Bell, Settings, LogOut, Plus } from 'lucide-react';
+import AIChatbot from './AIChatbot';
+
+function DoctorDashboard({ user, onLogout }) {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [showChatbot, setShowChatbot] = useState(false);
   
-  .doctor-dashboard .dashboard-header {
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-  }
-  
-  .doctor-dashboard .stat-card.pending {
-    border-left: 4px solid #FFA500;
-  }
-  
-  .doctor-dashboard .stat-card.confirmed {
-    border-left: 4px solid #4CAF50;
-  }
-  
-  .doctor-dashboard .stat-card.completed {
-    border-left: 4px solid #2196F3;
-  }
-  
-  .doctor-dashboard .stat-card.total {
-    border-left: 4px solid #9C27B0;
-  }
-  
-  .patient-info {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-  }
-  
-  .patient-avatar {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    font-weight: 700;
-  }
-  
-  .patient-email {
-    color: #666;
-    font-size: 0.9rem;
-    margin: 0;
-  }
-  
-  .pending-card {
-    border-left: 4px solid #FFA500;
-  }
-  
-  .confirmed-card {
-    border-left: 4px solid #4CAF50;
-  }
-  
-  .completed-card {
-    border-left: 4px solid #2196F3;
-    opacity: 0.8;
-  }
-  
-  .accept-btn {
-    background: #4CAF50;
-    color: white;
-    border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    flex: 1;
-  }
-  
-  .accept-btn:hover {
-    background: #45a049;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
-  }
-  
-  .reject-btn {
-    background: #f44336;
-    color: white;
-    border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    flex: 1;
-  }
-  
-  .reject-btn:hover {
-    background: #d32f2f;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(244, 67, 54, 0.3);
-  }
-  
-  .complete-btn {
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    color: white;
-    border: none;
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    width: 100%;
-  }
-  
-  .complete-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(17, 153, 142, 0.3);
-  }
-  
-  .patient-summary {
-    background: #f8f9fa;
-    padding: 1.5rem;
-    border-radius: 8px;
-    margin: 1rem 1.5rem;
-  }
-  
-  .patient-summary h3 {
-    margin: 0 0 0.5rem 0;
-    color: #333;
-    font-size: 1.2rem;
-  }
-  
-  .patient-summary p {
-    margin: 0.25rem 0;
-    color: #555;
-    font-size: 0.95rem;
-  }
-  
-  /* Reuse common styles from PatientDashboard */
-  .doctor-dashboard .dashboard-content,
-  .doctor-dashboard .stats-grid,
-  .doctor-dashboard .stat-card,
-  .doctor-dashboard .dashboard-section,
-  .doctor-dashboard .appointments-list,
-  .doctor-dashboard .appointment-card,
-  .doctor-dashboard .appointment-header,
-  .doctor-dashboard .appointment-details,
-  .doctor-dashboard .detail-item,
-  .doctor-dashboard .symptoms-section,
-  .doctor-dashboard .appointment-actions,
-  .doctor-dashboard .status-badge,
-  .doctor-dashboard .empty-state,
-  .doctor-dashboard .modal-overlay,
-  .doctor-dashboard .modal-content,
-  .doctor-dashboard .modal-header,
-  .doctor-dashboard .close-btn,
-  .doctor-dashboard .modal-actions,
-  .doctor-dashboard .loading-container,
-  .doctor-dashboard .spinner {
-    /* Inherit from PatientDashboard.css */
-  }
-  
-  @media (max-width: 768px) {
-    .appointment-actions {
-      flex-direction: column;
-    }
-  
-    .accept-btn,
-    .reject-btn {
-      width: 100%;
-    }
-  }
+  const [patients] = useState([
+    { id: 1, name: 'Sunny', condition: 'Hypertension', lastVisit: '11/27/2025' }
+  ]);
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#f5f5f5' }}>
+      {/* Header */}
+      <nav style={{ background: 'white', borderBottom: '1px solid #e0e0e0', padding: '15px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', background: 'linear-gradient(135deg, #2196F3 0%, #1976D2 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', margin: 0 }}>
+            🏥 Healthcare
+          </h1>
+          <span style={{ background: '#e3f2fd', color: '#1976d2', padding: '5px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: '500' }}>
+            Doctor Portal
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <button onClick={() => setShowChatbot(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', position: 'relative' }}>
+            <MessageCircle size={22} color="#666" />
+            <span style={{ position: 'absolute', top: -2, right: -2, width: '8px', height: '8px', background: '#4CAF50', borderRadius: '50%' }}></span>
+          </button>
+          <Bell size={22} color="#666" style={{ cursor: 'pointer' }} />
+          <Settings size={22} color="#666" style={{ cursor: 'pointer' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', borderLeft: '1px solid #e0e0e0', paddingLeft: '20px' }}>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ margin: 0, fontSize: '14px', fontWeight: '500' }}>{user.name}</p>
+              <p style={{ margin: 0, fontSize: '12px', color: '#666' }}>{user.specialty || 'General Medicine'}</p>
+            </div>
+            <div style={{ width: '40px', height: '40px', background: 'linear-gradient(135deg, #2196F3 0%, #1976D2 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>
+              {user.name.charAt(0)}
+            </div>
+            <button onClick={onLogout} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+              <LogOut size={20} color="#666" />
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '30px', display: 'flex', gap: '30px' }}>
+        {/* Sidebar */}
+        <aside style={{ width: '250px', background: 'white', borderRadius: '15px', border: '1px solid #e0e0e0', padding: '20px' }}>
+          {[
+            { id: 'overview', label: 'Overview', icon: Activity },
+            { id: 'appointments', label: 'Appointments', icon: Calendar },
+            { id: 'patients', label: 'Patients', icon: Users },
+            { id: 'records', label: 'Records', icon: FileText }
+          ].map(item => {
+            const Icon = item.icon;
+            return (
+              <button key={item.id} onClick={() => setActiveTab(item.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 15px', background: activeTab === item.id ? '#e3f2fd' : 'transparent', color: activeTab === item.id ? '#1976d2' : '#666', border: 'none', borderRadius: '10px', marginBottom: '8px', cursor: 'pointer', fontSize: '15px', fontWeight: activeTab === item.id ? '500' : 'normal' }}>
+                <Icon size={20} />
+                {item.label}
+              </button>
+            );
+          })}
+        </aside>
+
+        {/* Main Content */}
+        <main style={{ flex: 1 }}>
+          {activeTab === 'overview' && (
+            <div>
+              {/* Stats */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '30px' }}>
+                <div style={{ background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)', padding: '25px', borderRadius: '15px', border: '1px solid #90caf9' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                    <div>
+                      <p style={{ margin: 0, color: '#1565c0', fontSize: '14px', fontWeight: '500' }}>Today's Appointments</p>
+                      <p style={{ margin: '10px 0 0 0', fontSize: '36px', fontWeight: 'bold', color: '#0d47a1' }}>0</p>
+                      <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#1976d2' }}>0 confirmed</p>
+                    </div>
+                    <Calendar size={40} color="#1976d2" style={{ opacity: 0.8 }} />
+                  </div>
+                </div>
+
+                <div style={{ background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)', padding: '25px', borderRadius: '15px', border: '1px solid #81c784' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                    <div>
+                      <p style={{ margin: 0, color: '#2e7d32', fontSize: '14px', fontWeight: '500' }}>Total Patients</p>
+                      <p style={{ margin: '10px 0 0 0', fontSize: '36px', fontWeight: 'bold', color: '#1b5e20' }}>1</p>
+                      <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#388e3c' }}>Active patients</p>
+                    </div>
+                    <Users size={40} color="#388e3c" style={{ opacity: 0.8 }} />
+                  </div>
+                </div>
+
+                <div style={{ background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)', padding: '25px', borderRadius: '15px', border: '1px solid #ffb74d' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                    <div>
+                      <p style={{ margin: 0, color: '#e65100', fontSize: '14px', fontWeight: '500' }}>Pending Requests</p>
+                      <p style={{ margin: '10px 0 0 0', fontSize: '36px', fontWeight: 'bold', color: '#bf360c' }}>0</p>
+                      <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#f57c00' }}>Awaiting response</p>
+                    </div>
+                    <FileText size={40} color="#f57c00" style={{ opacity: 0.8 }} />
+                  </div>
+                </div>
+
+                <div style={{ background: 'linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%)', padding: '25px', borderRadius: '15px', border: '1px solid #ba68c8' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                    <div>
+                      <p style={{ margin: 0, color: '#6a1b9a', fontSize: '14px', fontWeight: '500' }}>Total Appointments</p>
+                      <p style={{ margin: '10px 0 0 0', fontSize: '36px', fontWeight: 'bold', color: '#4a148c' }}>0</p>
+                      <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#7b1fa2' }}>All time</p>
+                    </div>
+                    <Activity size={40} color="#7b1fa2" style={{ opacity: 0.8 }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Schedule & Patients */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div style={{ background: 'white', borderRadius: '15px', border: '1px solid #e0e0e0' }}>
+                  <div style={{ padding: '20px', borderBottom: '1px solid #e0e0e0' }}>
+                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>Today's Schedule</h3>
+                    <p style={{ margin: '5px 0 0 0', fontSize: '13px', color: '#666' }}>
+                      {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                    </p>
+                  </div>
+                  <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+                    <Calendar size={48} color="#ccc" style={{ margin: '0 auto 15px' }} />
+                    <p style={{ color: '#999' }}>No appointments today</p>
+                  </div>
+                </div>
+
+                <div style={{ background: 'white', borderRadius: '15px', border: '1px solid #e0e0e0' }}>
+                  <div style={{ padding: '20px', borderBottom: '1px solid #e0e0e0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>Recent Patients</h3>
+                      <p style={{ margin: '5px 0 0 0', fontSize: '13px', color: '#666' }}>Quickly access patient information</p>
+                    </div>
+                    <button style={{ background: '#2196F3', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Plus size={16} />
+                      Add Patient
+                    </button>
+                  </div>
+                  <div style={{ padding: '20px' }}>
+                    {patients.map(p => (
+                      <div key={p.id} style={{ padding: '15px', background: 'linear-gradient(135deg, #f5f5f5 0%, #e3f2fd 100%)', borderRadius: '10px', border: '1px solid #e0e0e0', marginBottom: '10px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                          <div style={{ width: '40px', height: '40px', background: 'linear-gradient(135deg, #2196F3 0%, #1976D2 100%)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>
+                            {p.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p style={{ margin: 0, fontWeight: '600', fontSize: '15px' }}>{p.name}</p>
+                            <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#666' }}>Age: 30</p>
+                          </div>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>{p.condition}</p>
+                        <p style={{ margin: '5px 0 0 0', fontSize: '11px', color: '#999' }}>Last visit: {p.lastVisit}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              </div>
+              )}
+            </main>
+          </div>
+        
+          {showChatbot && <AIChatbot onClose={() => setShowChatbot(false)} userRole="doctor" />}
+        </div>
+        );
+        }
+        export default DoctorDashboard;
